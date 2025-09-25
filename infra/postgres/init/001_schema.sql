@@ -1,7 +1,15 @@
+CREATE TABLE IF NOT EXISTS customers (
+    customer_id VARCHAR(20) PRIMARY KEY,
+    name TEXT,
+    email TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
 CREATE TABLE IF NOT EXISTS transactions (
     event_id VARCHAR(255) PRIMARY KEY,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    customer_id VARCHAR(255) NOT NULL,
+    customer_id VARCHAR(255) NOT NULL REFERENCES customers(customer_id),
     amount DECIMAL(19, 4) NOT NULL,
     currency VARCHAR(3) NOT NULL,
     from_account VARCHAR(255),

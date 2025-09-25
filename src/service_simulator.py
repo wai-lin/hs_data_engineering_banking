@@ -8,11 +8,12 @@ from typing import Dict
 
 from faker import Faker
 from kafka import KafkaProducer
+from dotenv import load_dotenv
 
-# ---------------- Configuration ----------------
-KAFKA_BROKER_URL = os.getenv("KAFKA_BROKER_URL", "localhost:9092")
-RAW_TRANSACTIONS_TOPIC = os.getenv(
-    "RAW_TRANSACTIONS_TOPIC", "transactions_raw")
+
+load_dotenv()
+KAFKA_BROKER_URL = os.getenv("KAFKA_BROKER_URL")
+RAW_TRANSACTIONS_TOPIC = os.getenv("RAW_TRANSACTIONS_TOPIC")
 
 DEFAULT_INTERVALS: Dict[str, float] = {
     "Mobile App": float(os.getenv("INTERVAL_MOBILE", "1.0")),
@@ -22,9 +23,9 @@ DEFAULT_INTERVALS: Dict[str, float] = {
 
 MAX_QUEUE_BUFFERED_MS = int(os.getenv("MAX_QUEUE_BUFFERED_MS", "5000"))
 
-# ---------------- Globals ----------------
 fake = Faker()
 shutdown_flag = threading.Event()
+
 
 # ---------------- Kafka Producer ----------------
 producer = KafkaProducer(
@@ -49,8 +50,7 @@ def generate_transaction(source_type: str) -> dict:
     from_account = f"ACC{random.randint(100000000, 999999999)}"
     to_account = f"ACC{random.randint(100000000, 999999999)}"
     transaction_type = random.choice(
-        ["P2P_TRANSFER", "PURCHASE", "WITHDRAWAL",
-            "DEPOSIT", "BILL_PAYMENT", "REFUND"]
+        ["P2P_TRANSFER", "PURCHASE", "WITHDRAWAL", "DEPOSIT", "BILL_PAYMENT", "REFUND"]
     )
     device_id = f"DEV_{fake.md5()[:10]}"
     ip_address = fake.ipv4()
@@ -119,8 +119,7 @@ def main():
 
     threads = []
     for source, interval in DEFAULT_INTERVALS.items():
-        t = threading.Thread(target=producer_loop, args=(
-            source, interval), daemon=True)
+        t = threading.Thread(target=producer_loop, args=(source, interval), daemon=True)
         threads.append(t)
         t.start()
 

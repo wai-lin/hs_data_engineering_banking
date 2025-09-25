@@ -7,24 +7,25 @@ import psycopg2
 from psycopg2 import extras
 from kafka import KafkaConsumer
 from typing import List
+from dotenv import load_dotenv
 
-# ---------------- Configuration ----------------
-KAFKA_BROKER_URL = os.getenv("KAFKA_BROKER_URL", "localhost:9092")
-PROCESSED_TRANSACTIONS_TOPIC = os.getenv(
-    "PROCESSED_TRANSACTIONS_TOPIC", "transactions_processed")
-CONSUMER_GROUP_ID = os.getenv("CONSUMER_GROUP_ID", "oltp_loader_group")
 
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "bank_transactions")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "pg")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
+load_dotenv()
 
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "50"))
-BATCH_INTERVAL_SEC = float(os.getenv("BATCH_INTERVAL_SEC", "2.0"))
-POLL_TIMEOUT_MS = int(os.getenv("POLL_TIMEOUT_MS", "1000"))
+KAFKA_BROKER_URL = os.getenv("KAFKA_BROKER_URL")
+PROCESSED_TRANSACTIONS_TOPIC = os.getenv("PROCESSED_TRANSACTIONS_TOPIC")
+CONSUMER_GROUP_ID = os.getenv("CONSUMER_GROUP_ID")
 
-# ---------------- Globals ----------------
+POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT")
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+
+BATCH_SIZE = int(os.getenv("BATCH_SIZE"))
+BATCH_INTERVAL_SEC = float(os.getenv("BATCH_INTERVAL_SEC"))
+POLL_TIMEOUT_MS = int(os.getenv("POLL_TIMEOUT_MS"))
+
 shutdown_flag = threading.Event()
 records_to_insert: List[dict] = []
 last_flush_time = time.monotonic()
@@ -38,16 +39,15 @@ def get_db_connection():
             port=POSTGRES_PORT,
             database=POSTGRES_DB,
             user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD
+            password=POSTGRES_PASSWORD,
         )
         print(
-            f"Successfully connected to PostgreSQL at {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
+            f"Successfully connected to PostgreSQL at {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+        )
         return conn
     except Exception as e:
         print(f"Error connecting to PostgreSQL: {e}")
         return None
-
-# ---------------- Data Insertion Function ----------------
 
 
 def flush_batch(conn, cursor, batch):
@@ -77,8 +77,6 @@ def flush_batch(conn, cursor, batch):
         conn.rollback()
         print(f"Error inserting batch into PostgreSQL: {e}")
 
-# ---------------- Consumer Loop ----------------
-
 
 def oltp_loader_loop():
     """Main loop for consuming Kafka messages and loading into OLTP."""
@@ -88,13 +86,12 @@ def oltp_loader_loop():
         PROCESSED_TRANSACTIONS_TOPIC,
         bootstrap_servers=[KAFKA_BROKER_URL],
         group_id=CONSUMER_GROUP_ID,
-        auto_offset_reset='earliest',
+        auto_offset_reset="earliest",
         enable_auto_commit=True,
         auto_commit_interval_ms=5000,
-        value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+        value_deserializer=lambda x: json.loads(x.decode("utf-8")),
     )
-    print(
-        f"OLTP loader started, listening to '{PROCESSED_TRANSACTIONS_TOPIC}'...")
+    print(f"OLTP loader started, listening to '{PROCESSED_TRANSACTIONS_TOPIC}'...")
 
     conn = None
     cursor = None
@@ -117,7 +114,10 @@ def oltp_loader_loop():
             messages = consumer.poll(timeout_ms=POLL_TIMEOUT_MS)
 
             if not messages:
-                if len(records_to_insert) > 0 and (time.monotonic() - last_flush_time) >= BATCH_INTERVAL_SEC:
+                if (
+                    len(records_to_insert) > 0
+                    and (time.monotonic() - last_flush_time) >= BATCH_INTERVAL_SEC
+                ):
                     flush_batch(conn, cursor, records_to_insert)
                     records_to_insert = []
                     last_flush_time = time.monotonic()
@@ -129,7 +129,8 @@ def oltp_loader_loop():
                     processed_transaction = record.value
                     if processed_transaction is None:
                         print(
-                            f"Received malformed message (None value) from offset {record.offset} in {topic_partition}")
+                            f"Received malformed message (None value) from offset {record.offset} in {topic_partition}"
+                        )
                         continue
 
                     records_to_insert.append(processed_transaction)
@@ -139,7 +140,10 @@ def oltp_loader_loop():
                         records_to_insert = []
                         last_flush_time = time.monotonic()
 
-            if len(records_to_insert) > 0 and (time.monotonic() - last_flush_time) >= BATCH_INTERVAL_SEC:
+            if (
+                len(records_to_insert) > 0
+                and (time.monotonic() - last_flush_time) >= BATCH_INTERVAL_SEC
+            ):
                 flush_batch(conn, cursor, records_to_insert)
                 records_to_insert = []
                 last_flush_time = time.monotonic()

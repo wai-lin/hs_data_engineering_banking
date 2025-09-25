@@ -8,4 +8,5 @@ dependencies = [
     "faker>=37.8.0",
     "kafka-python>=2.2.15",
     "psycopg2-binary>=2.9.10",
+    "python-dotenv>=1.1.1",
 ]

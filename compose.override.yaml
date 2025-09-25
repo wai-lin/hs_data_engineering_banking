@@ -1,0 +1,104 @@
+x-shared-env: &shared
+  TZ: "Asia/Bangkok"
+  KAFKA_BOOTSTRAP_SERVERS: "host.docker.internal:9092"
+
+x-airflow-conns: &airflow_conns
+services:
+  broker:
+    image: apache/kafka:latest
+    hostname: kafka-broker
+    container_name: kafka-broker
+    ports:
+      - "9092:9092"
+    # networks:
+    #   - application
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka-broker:29092,CONTROLLER://kafka-broker:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8100:8080"
+    # networks:
+    #   - application
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: PLAINTEXT://kafka-broker:29092
+
+  oltp-postgres:
+    image: postgres:16
+    container_name: oltp_postgres
+    restart: unless-stopped
+    environment:
+      <<: *shared
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: bank_transactions
+    ports:
+      - "5433:5432"
+    volumes:
+      - oltp_pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d # optional seed SQL
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d bank_transactions"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  olap-clickhouse:
+    container_name: olap_clickhouse
+    image: clickhouse/clickhouse-server:head-alpine
+    restart: unless-stopped
+    ports:
+      - "8123:8123" # HTTP
+      - "9000:9000" # Native TCP
+    environment:
+      <<: *shared
+      CLICKHOUSE_DB: staging
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - olap_ch_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --query='SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: dev_grafana
+    restart: unless-stopped
+    depends_on:
+      olap-clickhouse:
+        condition: service_healthy
+    environment:
+      <<: *shared
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning # optional
+
+volumes:
+  oltp_pg_data:
+  olap_ch_data:
+  kafka_data:
+  grafana_data:
