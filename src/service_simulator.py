@@ -43,7 +43,7 @@ def generate_transaction(source_type: str) -> dict:
     """Generate a single fake transaction event."""
     event_id = fake.uuid4()
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    customer_id = f"C{random.randint(10000, 99999)}"
+    customer_id = f"C{random.randint(1, 100):03d}"
     amount = round(random.uniform(5.0, 1500.0), 2)
     currency = random.choice(["USD", "EUR", "GBP", "CAD"])
     from_account = f"ACC{random.randint(100000000, 999999999)}"
