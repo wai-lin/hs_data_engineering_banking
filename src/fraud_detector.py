@@ -59,6 +59,8 @@ def detect_fraud_by_chance(transaction: dict) -> dict:
         transaction['fraud_detection_reason'] = "Simulated: Random chance"
         print(
             f"FRAUD DETECTED (Simulated): Event ID {transaction['event_id']}, Amount {transaction['amount']}, Customer {transaction['customer_id']}")
+    else:
+        transaction['fraud_detection_reason'] = None
 
     return transaction
 
