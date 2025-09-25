@@ -38,3 +38,22 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: PLAINTEXT://kafka-broker:29092
+
+  postgres:
+    image: postgres:15
+    hostname: postgres-oltp
+    container_name: postgres-oltp
+    environment:
+      POSTGRES_DB: bank_transactions
+      POSTGRES_USER: pg
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    networks:
+      - application
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    driver: local
