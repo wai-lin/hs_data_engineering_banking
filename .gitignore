@@ -12,6 +12,7 @@ wheels/
 
 # logs
 logs
+tmp
 
 # ruff
 .ruff_cache
